@@ -1,7 +1,6 @@
-from pyspark_patch import patch_class, patch_instance
-from .riak_rdd import RiakRDD
+from pyspark_patch import riak_context
+from .riak_rdd import RiakKVRDD
 __all__ = [
-    "RiakRDD",
-    "patch_class",
-    "patch_instance"
+    "RiakKVRDD",
+    "riak_context"
 ]

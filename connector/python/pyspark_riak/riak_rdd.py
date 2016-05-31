@@ -3,12 +3,12 @@ import pyspark
 from pyspark.rdd import RDD
 
 def riakBucket(self, bucket_name, bucket_type):
-    return RiakRDD(self, bucket_name, bucket_type)
+    return RiakKVRDD(self, bucket_name, bucket_type)
 
 def saveToRiak(self, bucket_name, bucket_type):
     return helper(self.ctx).saveToRiak(self._jrdd, bucket_name, bucket_type)
 
-class RiakRDD(RDD):
+class RiakKVRDD(RDD):
 
     def __init__(self, ctx, bucket_name, bucket_type):
         if not bucket_name:
@@ -24,7 +24,7 @@ class RiakRDD(RDD):
             def id(self):
                 return -1
         jrdd = DummyJRDD()
-        super(RiakRDD, self).__init__(jrdd, ctx)
+        super(RiakKVRDD, self).__init__(jrdd, ctx)
 
     @property
     def _helper(self):
