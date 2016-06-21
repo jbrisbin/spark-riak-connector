@@ -9,6 +9,8 @@ import docker, os, subprocess, json, riak, time
 import pyspark_riak
 import timeout_decorator
 import datetime
+import tzlocal
+import pytz
 
 #### Instructions to run #####
 '''
@@ -24,6 +26,21 @@ These assume OSX:
 
 '''
 
+#### Notes ####
+'''
+Saving ints to riak ts preserves the value of the timestamp.
+Querying ints using riak client is, in this case, simple, just query the int range
+
+Saving datetimes to riak ts, the datetimes will be treated as local time, converted then to gmt time.
+You can query with riak client by int only, so in this case you must convert your local datetime to utc int.
+If you do ts_get, you can use local datetime to query. The query will be converted automatically to utc before query.
+
+Reading datetime from ts using spark timestamp option will convert datetime back to local datetime.
+'''
+
+
+
+#### TODO ####
 
 #sudo route add 172.17.0.0/16 192.168.99.100, osx only
 #docker, pull riak-ts image
@@ -131,7 +148,7 @@ def retry_func_with_timeout(func, times, timeout, signal, args, use_condition, c
 
         except Exception as e:
             print(func)
-            print(e)
+            #print(e)
 
         i = i + 1
         time.sleep(1)
@@ -198,24 +215,82 @@ def riak_start_condition(result, val, func, args):
         return False
 
 def df_read_verify_condition(result, val, func, args):
+
+    #print(sorted(result.collect(), key=lambda x: x[2]))
+    #print(sorted(val.collect(), key=lambda x: x[2]))
+
     if sorted(result.collect(), key=lambda x: x[2]) == sorted(val.collect(), key=lambda x: x[2]):
         return True
     else:
         return False
 
-
-
 def unix_time_millis(dt):
     td = dt - datetime.datetime.utcfromtimestamp(0)
     return int(td.total_seconds() * 1000.0)
 
+def make_data_long(start_date, N, M):
+
+    data = []
+    one_second = datetime.timedelta(seconds=1)
+    one_day = datetime.timedelta(days=1)
+
+    for i in range(M):
+        for j in range(N):
+
+            data.append(['field1_val', 'field2_val', unix_time_millis(start_date + i*one_day + j*one_second), i+j])
+
+
+    end_date = start_date + (M-1)*one_day + (N-1)*one_second
+    return data, start_date, end_date
+
+
+def make_data_timestamp(start_date, N, M):
+
+    timestamp_data = []
+    long_data = []
+
+    one_second = datetime.timedelta(seconds=1)
+    one_day = datetime.timedelta(days=1)
+
+    for i in range(M):
+        for j in range(N):
+
+            cur_local_timestamp = start_date + i*one_day + j*one_second
+            timestamp_data.append(['field1_val', 'field2_val', cur_local_timestamp, i+j])
+            long_data.append(['field1_val', 'field2_val', unix_time_millis(convert_local_dt_to_gmt_dt(cur_local_timestamp)), i+j])
+    
+    start_timestamp = timestamp_data[0][2]
+    end_timestamp = timestamp_data[-1][2]
+    start_long = long_data[0][2]
+    end_long = long_data[-1][2]
+
+    return timestamp_data, start_timestamp, end_timestamp, long_data, start_long, end_long 
+
+def convert_local_dt_to_gmt_dt(dt):
+
+    local_tz = tzlocal.get_localzone()
+    local_dt = local_tz.localize(dt)
+    gmt_dt_with_tzinfo = pytz.utc.normalize(local_dt)
+
+    year = gmt_dt_with_tzinfo.year
+    month = gmt_dt_with_tzinfo.month
+    day = gmt_dt_with_tzinfo.day
+    hour = gmt_dt_with_tzinfo.hour
+    minute = gmt_dt_with_tzinfo.minute
+    second = gmt_dt_with_tzinfo.second
+
+    gmt_dt = datetime.datetime(year, month, day, hour, minute, second)
+
+    return gmt_dt
+
+
 ###### TESTS #######
 
-def test_connection(spark_context, docker_cli, riak_client, sql_context):
+def _test_connection(spark_context, docker_cli, riak_client, sql_context):
 
     assert retry_func_with_timeout(func=riak_client.ping, 
                                    times=10, 
-                                   timeout=2, 
+                                   timeout=1, 
                                    signal=True, 
                                    args=[], 
                                    use_condition=True, 
@@ -291,11 +366,9 @@ def test_connection(spark_context, docker_cli, riak_client, sql_context):
                                    test_args=None
                                    )[0] == True
 
-
-
 ###### Riak TS Test #######
 
-def test_spark_df_ts_write_one_entry(spark_context, docker_cli, riak_client, sql_context):
+def _test_spark_df_ts_write_use_long(N, M, spark_context, docker_cli, riak_client, sql_context):
 
     riak_ts_table_name, create_sql, riak_ts_table = setup_table(riak_client)
 
@@ -311,23 +384,11 @@ def test_spark_df_ts_write_one_entry(spark_context, docker_cli, riak_client, sql
                                    test_args=None
                                    )[0] == True
 
-    test_row_in = ['field1_val', 'field2_val', unix_time_millis(datetime.datetime(2015, 1, 1, 12, 0, 0)), 0]
-    test_rdd = spark_context.parallelize([test_row_in])
+
+    seed_date = datetime.datetime(2015, 1, 1, 12, 0, 0)
+    test_data, start, end = make_data_long(seed_date, N, M)
+    test_rdd = spark_context.parallelize(test_data)
     test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
-
-    one_second = datetime.timedelta(seconds=1)
-    one_day = datetime.timedelta(days=1)
-    start = datetime.datetime(2015, 1, 1, 12, 0, 0) - one_day
-    end = datetime.datetime(2015, 1, 1, 12, 0, 0) + one_day
-
-    fmt =   """
-                select * from {table_name}
-                where datetime >= {start_date}
-                AND datetime <=  {end_date}
-                AND field1 = '{field1}'
-                AND field2 = '{field2}'          
-            """
-    query = fmt.format(table_name=riak_ts_table_name, start_date=unix_time_millis(start), end_date=unix_time_millis(end), field1='field1_val', field2='field2_val')
 
     assert retry_func_with_timeout(func=test_df.write.format('org.apache.spark.sql.riak').mode('Append').save,
                                    times=10, 
@@ -341,6 +402,15 @@ def test_spark_df_ts_write_one_entry(spark_context, docker_cli, riak_client, sql
                                    test_args=None
                                    )[0] == True
 
+    fmt =   """
+                select * from {table_name}
+                where datetime >= {start_date}
+                AND datetime <=  {end_date}
+                AND field1 = '{field1}'
+                AND field2 = '{field2}'          
+            """
+    query = fmt.format(table_name=riak_ts_table_name, start_date=unix_time_millis(start), end_date=unix_time_millis(end), field1='field1_val', field2='field2_val')
+
     assert retry_func_with_timeout(func=riak_ts_table.query, 
                                    times=10, 
                                    timeout=3, 
@@ -353,7 +423,7 @@ def test_spark_df_ts_write_one_entry(spark_context, docker_cli, riak_client, sql
                                    test_args=None
                                    )[0] == True
 
-def test_spark_df_ts_read_one_entry(spark_context, docker_cli, riak_client, sql_context):
+def _test_spark_df_ts_write_use_timestamp(N, M, spark_context, docker_cli, riak_client, sql_context):
 
     riak_ts_table_name, create_sql, riak_ts_table = setup_table(riak_client)
 
@@ -369,14 +439,17 @@ def test_spark_df_ts_read_one_entry(spark_context, docker_cli, riak_client, sql_
                                    test_args=None
                                    )[0] == True
 
-    input_data = [['field1_val', 'field2_val', unix_time_millis(datetime.datetime(2015, 1, 1, 12, 0, 0)), 0]]
-    ts_obj = setup_ts_obj(riak_ts_table, input_data)
+    seed_date = datetime.datetime(2015, 1, 1, 12, 0, 0)
+    timestamp_data, start_timestamp, end_timestamp, long_data, start_long, end_long, = make_data_timestamp(seed_date, N, M)
+    test_rdd = spark_context.parallelize(timestamp_data)
+    test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
+    verify_rdd = spark_context.parallelize(long_data)
 
-    assert retry_func_with_timeout(func=ts_obj.store, 
-                                   times=20, 
-                                   timeout=2, 
+    assert retry_func_with_timeout(func=test_df.write.format('org.apache.spark.sql.riak').mode('Append').save,
+                                   times=10, 
+                                   timeout=30, 
                                    signal=True, 
-                                   args=[], 
+                                   args=[riak_ts_table_name], 
                                    use_condition=False, 
                                    condition_func=None, 
                                    condition_val=None,
@@ -384,18 +457,67 @@ def test_spark_df_ts_read_one_entry(spark_context, docker_cli, riak_client, sql_
                                    test_args=None
                                    )[0] == True
 
-    one_second = datetime.timedelta(seconds=1)
-    one_day = datetime.timedelta(days=1)
-    start = datetime.datetime(2015, 1, 1, 12, 0, 0) - one_day
-    end = datetime.datetime(2015, 1, 1, 12, 0, 0) + one_day
+    fmt =   """
+                select * from {table_name}
+                where datetime >= {start_date}
+                AND datetime <=  {end_date}
+                AND field1 = '{field1}'
+                AND field2 = '{field2}'          
+            """
+    query = fmt.format(table_name=riak_ts_table_name, start_date=start_long, end_date=end_long, field1='field1_val', field2='field2_val')
+
+    assert retry_func_with_timeout(func=riak_ts_table.query, 
+                                   times=10, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=[query], 
+                                   use_condition=True, 
+                                   condition_func=ts_query_condition, 
+                                   condition_val=verify_rdd.collect(),
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+
+
+def _test_spark_df_ts_read_use_long(N, M, spark_context, docker_cli, riak_client, sql_context):
+
+    riak_ts_table_name, create_sql, riak_ts_table = setup_table(riak_client)
+
+    assert retry_func_with_timeout(func=riak_ts_table.query,
+                                   times=10, 
+                                   timeout=2, 
+                                   signal=True, 
+                                   args=[create_sql], 
+                                   use_condition=False, 
+                                   condition_func=None, 
+                                   condition_val=None,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+    seed_date = datetime.datetime(2015, 1, 1, 12, 0, 0)
+    test_data, start, end = make_data_long(seed_date, N, M)
+    test_rdd = spark_context.parallelize(test_data)
+    test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
+
+    assert retry_func_with_timeout(func=test_df.write.format('org.apache.spark.sql.riak').mode('Append').save,
+                                   times=10, 
+                                   timeout=30, 
+                                   signal=True, 
+                                   args=[riak_ts_table_name], 
+                                   use_condition=False, 
+                                   condition_func=None, 
+                                   condition_val=None,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
 
     temp_filter = """datetime >= %(start_date)s
                     AND datetime <=  %(end_date)s
                     AND field1 = '%(field1)s'
                     AND field2 = '%(field2)s'
                 """ % ({'start_date': unix_time_millis(start), 'end_date': unix_time_millis(end), 'field1': 'field1_val', 'field2': 'field2_val'})
-
-    condition_df = spark_context.parallelize(input_data).toDF(['field1', 'field2', 'datetime', 'data'])
 
     assert retry_func_with_timeout(func=sql_context.read.format("org.apache.spark.sql.riak").option("spark.riakts.bindings.timestamp", "useLong").load(riak_ts_table_name).filter, 
                                    times=20, 
@@ -404,158 +526,157 @@ def test_spark_df_ts_read_one_entry(spark_context, docker_cli, riak_client, sql_
                                    args=[temp_filter], 
                                    use_condition=True, 
                                    condition_func=df_read_verify_condition, 
-                                   condition_val=condition_df,
+                                   condition_val=test_df,
                                    test_func=None,
                                    test_args=None
                                    )[0] == True
-   
-
-'''
-Test list
-
-1:read/write 1 entry
-2:read/write N entries, all in same quantum
-3:read/write N entries per M quanta
-'''
 
 
-'''
-def test_spark_df_ts_write_one_entry(spark_context, docker_cli, riak_client, sql_context):
+def _test_spark_df_ts_read_use_timestamp(N, M, spark_context, docker_cli, riak_client, sql_context):
 
-    #host, pb_port, hostAndPort = get_host_and_port(docker_cli)
-    temp_table, temp_table_name, created = create_table(riak_client)
-    assert created == True
+    riak_ts_table_name, create_sql, riak_ts_table = setup_table(riak_client)
 
-    test_row_in = ['field1_val', 'field2_val', datetime.datetime.fromtimestamp(1293840000), 0]
-    test_rdd = spark_context.parallelize([test_row_in])
+    assert retry_func_with_timeout(func=riak_ts_table.query,
+                                   times=10, 
+                                   timeout=2, 
+                                   signal=True, 
+                                   args=[create_sql], 
+                                   use_condition=False, 
+                                   condition_func=None, 
+                                   condition_val=None,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+    seed_date = datetime.datetime(2015, 1, 1, 12, 0, 0)
+    timestamp_data, start_timestamp, end_timestamp, long_data, start_long, end_long, = make_data_timestamp(seed_date, N, M)
+    test_rdd = spark_context.parallelize(timestamp_data)
+    test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
+    verify_rdd = spark_context.parallelize(long_data)
+
+    assert retry_func_with_timeout(func=test_df.write.format('org.apache.spark.sql.riak').mode('Append').save,
+                                   times=10, 
+                                   timeout=30, 
+                                   signal=True, 
+                                   args=[riak_ts_table_name], 
+                                   use_condition=False, 
+                                   condition_func=None, 
+                                   condition_val=None,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+    temp_filter = """datetime >= CAST('%(start_date)s' AS TIMESTAMP)
+                    AND datetime <=  CAST('%(end_date)s' AS TIMESTAMP)
+                    AND field1 = '%(field1)s'
+                    AND field2 = '%(field2)s'
+                """ % ({'start_date': start_timestamp, 'end_date': end_timestamp, 'field1': 'field1_val', 'field2': 'field2_val'})
+
+    assert retry_func_with_timeout(func=sql_context.read.format("org.apache.spark.sql.riak").option("spark.riakts.bindings.timestamp", "useTimestamp").load(riak_ts_table_name).filter, 
+                                   times=20, 
+                                   timeout=2, 
+                                   signal=True, 
+                                   args=[temp_filter], 
+                                   use_condition=True, 
+                                   condition_func=df_read_verify_condition, 
+                                   condition_val=test_df,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+def _test_spark_df_ts_range_query_use_long(N, M, S,spark_context, docker_cli, riak_client, sql_context):
+
+    riak_ts_table_name, create_sql, riak_ts_table = setup_table(riak_client)
+
+    assert retry_func_with_timeout(func=riak_ts_table.query,
+                                   times=10, 
+                                   timeout=2, 
+                                   signal=True, 
+                                   args=[create_sql], 
+                                   use_condition=False, 
+                                   condition_func=None, 
+                                   condition_val=None,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+    seed_date = datetime.datetime(2015, 1, 1, 12, 0, 0)
+    test_data, start, end = make_data_long(seed_date, N, M)
+    test_rdd = spark_context.parallelize(test_data)
     test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
 
-    assert df_write_retry(test_df, temp_table_name) == True
 
-    query = """select * from %(table_name)s
-                    where datetime >= %(start_date)s
-                    AND datetime <=  %(end_date)s
-                    AND field1 = '%(field1)s'
-                    AND field2 = '%(field2)s'
-                """ % ({'table_name': temp_table_name, 'start_date': 1293840000000-1, 'end_date': 1293840000000+1, 'field1': 'field1_val', 'field2': 'field2_val'})
+    test_func = test_df.write.format('org.apache.spark.sql.riak').mode('Append').save
 
-    assert ts_write_verify(riak_client, temp_table_name, query, [[b'field1_val', b'field2_val', 1293840000000, 0]]) or \
-            ts_write_verify(riak_client, temp_table_name, query, [[b'field1_val', b'field2_val', datetime.datetime(2011, 1, 1, 0, 0), 0]]) == True
-
-    temp_filter = """datetime >= CAST(%(start_date)s AS TIMESTAMP)
-                    AND datetime <=  CAST(%(end_date)s AS TIMESTAMP)
-                    AND field1 = '%(field1)s'
-                    AND field2 = '%(field2)s'
-                """ % ({'start_date': 1293840000-1, 'end_date': 1293840000+1, 'field1': 'field1_val', 'field2': 'field2_val'})
-
-    read_df = sql_context.read.format("org.apache.spark.sql.riak").load(temp_table_name).filter(temp_filter)
-    #sig, read_df = df_read_retry(sql_context, temp_table_name, temp_filter)
-    #assert sig == True
-    #assert read_df != []
-
-    test_row_out = read_df.collect()[0]
-
-    assert test_row_out['field1'] == 'field1_val'
-    assert test_row_out['field2'] == 'field2_val'
-    assert test_row_out['datetime'] == datetime.datetime.fromtimestamp(1293840000)
-    assert test_row_out['data'] == 0
-
+    assert retry_func_with_timeout(func=test_func,
+                                   times=3, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=[riak_ts_table_name], 
+                                   use_condition=False, 
+                                   condition_func=None, 
+                                   condition_val=None,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
 
     temp_filter = """datetime >= %(start_date)s
                     AND datetime <=  %(end_date)s
                     AND field1 = '%(field1)s'
                     AND field2 = '%(field2)s'
-                """ % ({'start_date': 1293840000000-1, 'end_date': 1293840000000+1, 'field1': 'field1_val', 'field2': 'field2_val'})
-
-    read_df = sql_context.read.format("org.apache.spark.sql.riak").option("spark.riakts.bindings.timestamp", "useLong").load(temp_table_name).filter(temp_filter)
-    #sig, read_df = df_read_retry(sql_context, temp_table_name, temp_filter, useLong = True)
-    #assert sig == True
-    #assert read_df != []
-
-    test_row_out = read_df.collect()[0]
-    
-    assert test_row_out['field1'] == 'field1_val'
-    assert test_row_out['field2'] == 'field2_val'
-    assert test_row_out['datetime'] == 1293840000000
-    assert test_row_out['data'] == 0
+                """ % ({'start_date': unix_time_millis(start), 'end_date': unix_time_millis(end), 'field1': 'field1_val', 'field2': 'field2_val'})
 
 
-def test_spark_df_ts_write_read_N_entries(spark_context, docker_cli, riak_client, sql_context, N=1000):
-
-    host, pb_port, hostAndPort = get_host_and_port(docker_cli)
-    temp_table, temp_table_name, created = create_table(riak_client)
-    assert created == True
-
-    start_time = 1293840000
-    end_time = start_time+N-1
-    test_data = [['field1_val', 'field2_val', datetime.datetime.fromtimestamp(start_time+i), 0] for i in range(N)]
-    end_time = int((datetime.datetime.fromtimestamp(start_time+N-1) - datetime.datetime.fromtimestamp(0)).total_seconds())
-
-    test_rdd = spark_context.parallelize(test_data)
-    test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
-
-    assert df_write_retry(test_df, temp_table_name) == True
-
-    temp_filter = """datetime >= CAST(%(start_date)s AS TIMESTAMP)
-                    AND datetime <=  CAST(%(end_date)s AS TIMESTAMP)
-                    AND field1 = '%(field1)s'
-                    AND field2 = '%(field2)s'
-                """ % ({'start_date': start_time-1, 'end_date': end_time+1, 'field1': 'field1_val', 'field2': 'field2_val'})
-
-    read_df = sql_context.read.format("org.apache.spark.sql.riak").load(temp_table_name).filter(temp_filter)
-    #sig, read_df = df_read_retry(sql_context, temp_table_name, temp_filter, useLong = True)
-    #assert sig == True
-    #assert read_df != []
-
-    test_data_out = read_df.collect()
-    #test_data_out = sorted(test_data_out, key = lambda x: x[2])
-
-    for i in range(N):
-
-        assert test_data_out[i]['field1'] == 'field1_val'
-        assert test_data_out[i]['field2'] == 'field2_val'
-        assert test_data_out[i]['datetime'] == datetime.datetime.fromtimestamp(start_time+i)
-        assert test_data_out[i]['data'] == 0
-
-def test_spark_df_ts_write_read_N_entries_per_M_quanta(spark_context, docker_cli, riak_client, sql_context, N=1, M=4):
-
-    host, pb_port, hostAndPort = get_host_and_port(docker_cli)
-    temp_table, temp_table_name, created = create_table(riak_client)
-    assert created == True
-
-    start_time = 1293840000
-    end_time = start_time+N-1
-    test_data = [['field1_val', 'field2_val', datetime.datetime.fromtimestamp(start_time+i+(j*86400)), 0] for j in range(M) for i in range(N)]
-    end_time = int((datetime.datetime.fromtimestamp(start_time+N-1+(M*86400)) - datetime.datetime.fromtimestamp(0)).total_seconds())
-
-    test_rdd = spark_context.parallelize(test_data)
-    test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
-
-    assert df_write_retry(test_df, temp_table_name) == True
-
-    temp_filter = """datetime >= CAST(%(start_date)s AS TIMESTAMP)
-                    AND datetime <=  CAST(%(end_date)s AS TIMESTAMP)
-                    AND field1 = '%(field1)s'
-                    AND field2 = '%(field2)s'
-                """ % ({'start_date': start_time-1, 'end_date': end_time+1, 'field1': 'field1_val', 'field2': 'field2_val'})
-
-    read_df = sql_context.read.format("org.apache.spark.sql.riak").option("spark.riak.partitioning.ts-range-field-name", "datetime").load(temp_table_name).filter(temp_filter)
-
-    test_data_out = read_df.collect()
-    test_data_out = sorted(test_data_out, key = lambda x: x[2])
-
-    print(len(test_data_out))
-    k = 0
-    for j in range(M):
-        for i in range(N):
-
-            assert test_data_out[k]['field1'] == 'field1_val'
-            assert test_data_out[k]['field2'] == 'field2_val'
-            assert test_data_out[k]['datetime'] == datetime.datetime.fromtimestamp(start_time+i+(j*86400))
-            assert test_data_out[k]['data'] == 0
-            k = k + 1
+    print(temp_filter)
+    print(start)
+    print(end)
+    test_func = sql_context.read.format("org.apache.spark.sql.riak") \
+                .option("spark.riakts.bindings.timestamp", "useLong") \
+                .load(riak_ts_table_name).filter
 
 
+    assert retry_func_with_timeout(func=test_func, 
+                                   times=1, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=[temp_filter], 
+                                   use_condition=True, 
+                                   condition_func=df_read_verify_condition, 
+                                   condition_val=test_df,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == False
+
+
+    test_func = sql_context.read.format("org.apache.spark.sql.riak") \
+                .option("spark.riakts.bindings.timestamp", "useLong") \
+                .option("spark.riak.input.split.count", str(S)) \
+                .option("spark.riak.partitioning.ts-range-field-name", "datetime") \
+                .load(riak_ts_table_name).filter
+
+    assert retry_func_with_timeout(func=test_func, 
+                                   times=5, 
+                                   timeout=5, 
+                                   signal=True, 
+                                   args=[temp_filter], 
+                                   use_condition=True, 
+                                   condition_func=df_read_verify_condition, 
+                                   condition_val=test_df,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+def test_spark_riak_connector(spark_context, docker_cli, riak_client, sql_context):
+
+    _test_connection(spark_context, docker_cli, riak_client, sql_context)
+    #_test_spark_df_ts_write_use_timestamp(1, 100, spark_context, docker_cli, riak_client, sql_context)
+    #_test_spark_df_ts_write_use_long(1, 100, spark_context, docker_cli, riak_client, sql_context)
+    #_test_spark_df_ts_read_use_timestamp(1, 100, spark_context, docker_cli, riak_client, sql_context)
+    #_test_spark_df_ts_read_use_long(1, 100, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_range_query_use_long(1, 500, 1, spark_context, docker_cli, riak_client, sql_context)
+
+
+'''
 ###### Riak KV Tests ######
 
 def test_spark_df_kv_write_read_query_all_one_entry(spark_context, docker_cli, riak_client, sql_context):
