@@ -161,6 +161,4 @@ abstract class AbstractTimeSeriesTest(val createTestData: Boolean = true) extend
     })
   }
 
-  protected def stringify = (s: Array[String]) => s.mkString("[", ",", "]")
-
 }

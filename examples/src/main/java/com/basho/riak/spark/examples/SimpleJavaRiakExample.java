@@ -17,22 +17,10 @@
  */
 package com.basho.riak.spark.examples;
 
-import static com.basho.riak.spark.japi.SparkJavaUtil.javaFunctions;
-
-import java.io.IOException;
-import java.io.Serializable;
-import java.util.List;
-import java.util.NoSuchElementException;
-
-import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaSparkContext;
-
 import com.basho.riak.client.api.annotations.RiakIndex;
 import com.basho.riak.client.api.annotations.RiakKey;
 import com.basho.riak.client.core.query.Namespace;
 import com.basho.riak.spark.japi.SparkJavaUtil;
-import com.basho.riak.spark.writer.mapper.DefaultWriteDataMapper;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -40,6 +28,17 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaSparkContext;
+
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.NoSuchElementException;
+
+import static com.basho.riak.spark.japi.SparkJavaUtil.javaFunctions;
 
 /**
  * Really simple demo program which calculates the number of records loaded from the Riak bucket
@@ -77,19 +76,21 @@ public class SimpleJavaRiakExample implements Serializable {
 
     final List<String> filteredBy2iRangeLocal = SparkJavaUtil.javaFunctions(jsc).riakBucket(SOURCE_DATA, String.class).query2iRangeLocal("creationNo", 2L, 5L).collect();
     System.out.println("Values filtered by secondary index range local:");
-    filteredBy2iRangeLocal.forEach(x -> System.out.println(x));
+    filteredBy2iRangeLocal.forEach(System.out::println);
 
     final List<String> filteredBy2iRange = SparkJavaUtil.javaFunctions(jsc).riakBucket(SOURCE_DATA, String.class).query2iRange("creationNo", 2L, 5L).collect();
     System.out.println("Values filtered by secondary index range:");
-    filteredBy2iRange.forEach(x -> System.out.println(x));
+    filteredBy2iRange.forEach(System.out::println);
 
-    final List<String> filteredByKeys = SparkJavaUtil.javaFunctions(jsc).riakBucket(SOURCE_DATA, String.class).queryBucketKeys("key-1", "key-3", "key-6").collect();
+    final List<String> filteredByKeys = SparkJavaUtil.javaFunctions(jsc).riakBucket(SOURCE_DATA, String.class).queryBucketKeys(
+            scala.collection.JavaConversions.asScalaBuffer(Arrays.asList("key-1", "key-3", "key-6"))).collect();
     System.out.println("Values filtered by keys:");
-    filteredByKeys.forEach(x -> System.out.println(x));
+    filteredByKeys.forEach(System.out::println);
 
-    final List<String> filteredBy2iKeys = SparkJavaUtil.javaFunctions(jsc).riakBucket(SOURCE_DATA, String.class).query2iKeys("creationNo", 1L, 3L, 6L).collect();
+    final List<String> filteredBy2iKeys = SparkJavaUtil.javaFunctions(jsc).riakBucket(SOURCE_DATA, String.class).query2iKeys(
+            "creationNo", scala.collection.JavaConversions.asScalaBuffer(Arrays.asList(1L, 3L, 6L))).collect();
     System.out.println("Values filtered by 2i keys:");
-    filteredBy2iKeys.forEach(x -> System.out.println(x));
+    filteredBy2iKeys.forEach(System.out::println);
   }
 
   protected static void createDemoData(JavaSparkContext jsc) throws JsonParseException, JsonMappingException, IOException {
