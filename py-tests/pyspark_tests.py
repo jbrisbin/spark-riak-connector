@@ -47,21 +47,21 @@ Reading datetime from ts using spark timestamp option will convert datetime back
 #cd to the test file and run, py.test pyspark_tests.py -s
 #pass in uber jar as os.environ['SPARK_CLASSPATH']
 
-os.environ['SPARK_CLASSPATH'] = '/Users/basho/.m2/repository/com/basho/riak/spark-riak-connector/1.5.1-SNAPSHOT/spark-riak-connector-1.5.1-SNAPSHOT-uber.jar'
-#os.environ['SPARK_CLASSPATH'] = '/vagrant/spark-riak-connector-1.5.1-SNAPSHOT-uber.jar'
+#os.environ['SPARK_CLASSPATH'] = '/Users/basho/.m2/repository/com/basho/riak/spark-riak-connector/1.5.1-SNAPSHOT/spark-riak-connector-1.5.1-SNAPSHOT-uber.jar'
+os.environ['SPARK_CLASSPATH'] = '/vagrant/spark-riak-connector-1.5.1-SNAPSHOT-uber.jar'
 ###### FIXTURES #######
 
 @pytest.fixture(scope="session")
 def docker_cli(request):
     home = os.environ['HOME']
-    cert_path = home+'/.docker/machine/certs/cert.pem'
-    key_path = home+'/.docker/machine/certs/key.pem'
-    ca_path = home+'/.docker/machine/certs/ca.pem'
-    tls_config = docker.tls.TLSConfig(client_cert=(cert_path, key_path), verify=ca_path)
-    cli = docker.Client(base_url=u'tcp://192.168.99.100:2376', tls=tls_config)
+    #cert_path = home+'/.docker/machine/certs/cert.pem'
+    #key_path = home+'/.docker/machine/certs/key.pem'
+    #ca_path = home+'/.docker/machine/certs/ca.pem'
+    #tls_config = docker.tls.TLSConfig(client_cert=(cert_path, key_path), verify=ca_path)
+    #cli = docker.Client(base_url=u'tcp://192.168.99.100:2376', tls=tls_config)
     
     #for ubunut
-    #cli = docker.Client(base_url='unix://var/run/docker.sock')
+    cli = docker.Client(base_url='unix://var/run/docker.sock')
 
 
     #for line in cli.pull('basho/riak-ts', stream=True):
@@ -101,9 +101,12 @@ def spark_context(request, docker_cli):
     conf.set('spark.riak.connection.host', hostAndPort)
     conf.set('spark.riak.connections.min', '1')
     conf.set('spark.riak.connections.max', '20')
+    conf.set('spark.driver.memory', '3g')
+    conf.set('spark.executor.memory', '3g')
     sc = SparkContext(conf=conf)
-    #sc.setLogLevel("ERROR")
-    sc.setLogLevel("FATAL")
+    sc.setLogLevel("ERROR")
+    #sc.setLogLevel("FATAL")
+    print(sc._conf.getAll())
     pyspark_riak.riak_context(sc)
     request.addfinalizer(lambda: sc.stop())
     return sc
@@ -159,8 +162,8 @@ def retry_func_with_timeout(func, times, timeout, signal, args, use_condition, c
                 return True, result
 
         except Exception as e:
-            #print(func)
-            #print(e)
+            print(func)
+            print(e)
             pass
 
         i = i + 1
@@ -356,7 +359,7 @@ def _test_connection(spark_context, docker_cli, riak_client, sql_context):
 
     assert retry_func_with_timeout(func=riak_client.ping, 
                                    times=5, 
-                                   timeout=1, 
+                                   timeout=4, 
                                    signal=True, 
                                    args=[], 
                                    use_condition=True, 
@@ -779,16 +782,17 @@ def _test_spark_df_ts_range_query_input_split_count_use_long(N, M, S,spark_conte
     test_rdd = spark_context.parallelize(test_data)
     test_df = test_rdd.toDF(['field1', 'field2', 'datetime', 'data'])
 
+    test_func_a2 = spark_context.parallelize(test_data).toDF(['field1', 'field2', 'datetime', 'data']).write.format('org.apache.spark.sql.riak').mode('Append').save
 
     test_func_a = test_df.write.format('org.apache.spark.sql.riak').mode('Append').save
 
-    assert retry_func_with_timeout(func=test_func_a,
+    assert retry_func_with_timeout(func=test_func_a2,
                                    times=5, 
                                    timeout=10, 
                                    signal=True, 
                                    args=[riak_ts_table_name], 
-                                   use_condition=False, 
-                                   condition_func=None, 
+                                   use_condition=True, 
+                                   condition_func=general_condition, 
                                    condition_val=None,
                                    test_func=None,
                                    test_args=None
@@ -806,6 +810,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_long(N, M, S,spark_conte
     print(start)
     print(end)
     
+    '''
     test_func_b = sql_context.read.format("org.apache.spark.sql.riak") \
                 .option("spark.riakts.bindings.timestamp", "useLong") \
                 .load(riak_ts_table_name).filter
@@ -822,7 +827,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_long(N, M, S,spark_conte
                                    test_func=None,
                                    test_args=None
                                    )[0] == False   
-    
+    '''
 
     test_func_c = sql_context.read.format("org.apache.spark.sql.riak") \
                 .option("spark.riakts.bindings.timestamp", "useLong") \
@@ -877,7 +882,6 @@ def _test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(N, M, S,
                                    test_func=None,
                                    test_args=None
                                    )[0] == True
-    time.sleep(3)
 
     temp_filter = """datetime >= %(start_date)s
                     AND datetime <=  %(end_date)s
@@ -890,6 +894,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(N, M, S,
     print(start)
     print(end)
     
+    '''
     test_func_b = sql_context.read.format("org.apache.spark.sql.riak") \
                 .option("spark.riakts.bindings.timestamp", "useLong") \
                 .load(riak_ts_table_name).filter
@@ -906,7 +911,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(N, M, S,
                                    test_func=None,
                                    test_args=None
                                    )[0] == False   
-    '''
+    
     test_func_c = sql_context.read.format("org.apache.spark.sql.riak") \
                 .option("spark.riakts.bindings.timestamp", "useLong") \
                 .option("spark.riak.partitioning.ts-quantum", "1s") \
@@ -992,7 +997,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_timestamp(N, M, S,spark_
     print(temp_filter)
     print(start_timestamp)
     print(end_timestamp)
-    
+    '''
     test_func_b = sql_context.read.format("org.apache.spark.sql.riak") \
                 .option("spark.riakts.bindings.timestamp", "useTimestamp") \
                 .load(riak_ts_table_name).filter
@@ -1009,7 +1014,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_timestamp(N, M, S,spark_
                                    test_func=None,
                                    test_args=None
                                    )[0] == False   
-    
+    '''
 
     test_func_c = sql_context.read.format("org.apache.spark.sql.riak") \
                 .option("spark.riakts.bindings.timestamp", "useTimestamp") \
@@ -1448,29 +1453,29 @@ def _test_spark_rdd_kv_read_partition_by_2i_range(N, spark_context, docker_cli, 
 
 ###### Run Tests ######
 
-def test_spark_riak_connector_kv(spark_context, docker_cli, riak_client, sql_context):
-
-    _test_connection(spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_write_kv(1000, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_kv_read_query_all(5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_kv_read_query_bucket_keys(10, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_kv_read_query_2i_keys(100, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_kv_read_query2iRange(50, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_kv_read_partition_by_2i_range(50, spark_context, docker_cli, riak_client, sql_context)
+#def test_spark_riak_connector_kv(spark_context, docker_cli, riak_client, sql_context):
+#
+#    _test_connection(spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_rdd_write_kv(1000, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_rdd_kv_read_query_all(5, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_rdd_kv_read_query_bucket_keys(10, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_rdd_kv_read_query_2i_keys(100, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_rdd_kv_read_query2iRange(50, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_rdd_kv_read_partition_by_2i_range(50, spark_context, docker_cli, riak_client, sql_context)
 
 def test_spark_riak_connector_ts(spark_context, docker_cli, riak_client, sql_context):
 
     _test_connection(spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_write_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_write_use_long(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_read_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_read_use_timestamp_ts_quantum(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_read_use_long(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_read_use_long_ts_quantum(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_range_query_input_split_count_use_long(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_range_query_input_split_count_use_timestamp(1, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_df_ts_range_query_input_split_count_use_timestamp_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_write_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_write_use_long(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_read_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_read_use_timestamp_ts_quantum(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_read_use_long(1, 1000, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_read_use_long_ts_quantum(1, 1000, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_range_query_input_split_count_use_long(1, 50, 15, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(1, 5000, 24, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_range_query_input_split_count_use_timestamp(1, 500, 1, spark_context, docker_cli, riak_client, sql_context)
+#    _test_spark_df_ts_range_query_input_split_count_use_timestamp_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
 
 
 
