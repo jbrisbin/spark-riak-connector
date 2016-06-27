@@ -19,7 +19,7 @@ These assume OSX:
 
 1:Install docker-toolbox, docker-machine, and docker
 2: Add a route to the docker machine with sudo route add 172.17.0.0/16 192.168.99.100
-3: Install required python libraries sudo pip install pytest, findspark, docker-py, timeout_decorator, datetime, riak
+3: Install required python libraries sudo pip install pytest, findspark, docker-py, timeout_decorator, datetime, riak, tzlocal, pytz
 4: Will need to manually install pyspark_riak library
 5: Create Spark-Riak Connector uber jar 1.5.1 and paste the path below in os.environ['SPARK_CLASSPATH]
 6: Pull down riak-ts docker image and install
@@ -38,8 +38,6 @@ If you do ts_get, you can use local datetime to query. The query will be convert
 
 Reading datetime from ts using spark timestamp option will convert datetime back to local datetime.
 '''
-
-
 
 #### TODO ####
 
@@ -161,8 +159,9 @@ def retry_func_with_timeout(func, times, timeout, signal, args, use_condition, c
                 return True, result
 
         except Exception as e:
-            print(func)
-            print(e)
+            #print(func)
+            #print(e)
+            pass
 
         i = i + 1
         time.sleep(1)
@@ -336,6 +335,17 @@ def kv_query_condition(result, val, func, args):
     print(sorted(val, key=lambda x: x[0]))
 
     if sorted(result.collect(), key=lambda x: x[0]) == sorted(val, key=lambda x: x[0]):
+        return True
+    else:
+        return False
+
+def kv_partition_condition(result, val, func, args):
+
+
+    print(sorted(result.collect(), key=lambda x: x[0]))
+    print(sorted(val[0], key=lambda x: x[0]))
+
+    if sorted(result.collect(), key=lambda x: x[0]) == sorted(val[0], key=lambda x: x[0]) and result.getNumPartitions() == val[1]:
         return True
     else:
         return False
@@ -1108,111 +1118,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_timestamp_ts_quantum(N, 
                                    test_args=None
                                    )[0] == True
 
-##def test_spark_riak_connector_ts(spark_context, docker_cli, riak_client, sql_context):
-
-    ##_test_connection(spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_write_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_write_use_long(1000, 5, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_read_use_timestamp(1000, 6, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_read_use_timestamp_ts_quantum(1000, 6, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_read_use_long(1000, 6, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_read_use_long_ts_quantum(1000, 6, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_range_query_input_split_count_use_long(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_range_query_input_split_count_use_timestamp(1, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_df_ts_range_query_input_split_count_use_timestamp_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
-
-
-###### Riak KV Tests ######
-
-def _test_spark_df_kv_read_query2iRange_one_entry(spark_context, docker_cli, riak_client, sql_context):
-
-    bucket = riak_client.bucket_type('default').bucket('test-python-bucket-6')
-    obj = riak.RiakObject(riak_client, bucket, 'key1')
-    obj.content_type = 'text/plain'
-    obj.data = 'test_data'
-    obj.add_index('test_index_1_int', 1)
-    obj.store()
-
-    rdd = spark_context.riakBucket("test-python-bucket-6", "default").query2iRange('test_index_1',0,2)
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')]  
-
-    rdd = spark_context.riakBucket("test-python-bucket-6", "default").query2iRange('test_index_1',0,1)
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')] 
-
-    rdd = spark_context.riakBucket("test-python-bucket-6", "default").query2iRange('test_index_1',1,2)
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')] 
-
-    rdd = spark_context.riakBucket("test-python-bucket-6", "default").query2iRange('test_index_1',1,1)
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')] 
-
-    rdd = spark_context.riakBucket("test-python-bucket-6", "default").query2iRange('test_index_1',2,4)
-    data = rdd.collect()
-
-    assert data == []   
-
-def _test_spark_df_kv_write_read_partition_by_2i_range_one_entry(spark_context, docker_cli, riak_client, sql_context):
-
-    bucket = riak_client.bucket_type('default').bucket('test-python-bucket-7')
-    obj = riak.RiakObject(riak_client, bucket, 'key1')
-    obj.content_type = 'text/plain'
-    obj.data = 'test_data'
-    obj.add_index('test_index_1_int', 1)
-    obj.store()
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (0, 2))
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')]
-    assert rdd.getNumPartitions() == 1
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (0, 1))
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')]
-    assert rdd.getNumPartitions() == 1
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (1, 2))
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')]
-    assert rdd.getNumPartitions() == 1
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (1, 1))
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')]
-    assert rdd.getNumPartitions() == 1
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (0, 2), (3, 4))
-    data = rdd.collect()
-
-    assert data == [('key1', 'test_data')]
-    assert rdd.getNumPartitions() == 2
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (3, 4))
-    data = rdd.collect()
-
-    assert data == []
-    assert rdd.getNumPartitions() == 1
-
-    rdd = spark_context.riakBucket("test-python-bucket-7", "default").partitionBy2iRanges("test_index_1", (3, 4), (5, 6))
-    data = rdd.collect()
-
-    assert data == []
-    assert rdd.getNumPartitions() == 2
-
-
-
-
+###### Riak KV Tests ###### 
 
 def _test_spark_rdd_write_kv(N, spark_context, docker_cli, riak_client, sql_context):
 
@@ -1393,6 +1299,18 @@ def _test_spark_rdd_kv_read_query_2i_keys(N, spark_context, docker_cli, riak_cli
                                    test_args=None
                                    )[0] == True
 
+    assert retry_func_with_timeout(func=spark_context.riakBucket("test-python-bucket-5", "default").query2iKeys,
+                                   times=10, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=integer2i,
+                                   use_condition=True, 
+                                   condition_func=kv_query_condition, 
+                                   condition_val=test_data,
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
 def _test_spark_rdd_kv_read_query2iRange(N, spark_context, docker_cli, riak_client, sql_context):
 
     bucket = riak_client.bucket_type('default').bucket('test-python-bucket-9')
@@ -1441,7 +1359,7 @@ def _test_spark_rdd_kv_read_query2iRange(N, spark_context, docker_cli, riak_clie
                                    args=['integer_index', integer2i[0], integer2i[ int(math.floor((len(integer2i)-1)/2))] ],
                                    use_condition=True, 
                                    condition_func=kv_query_condition, 
-                                   condition_val=test_data[ 0:int(math.floor((len(integer2i)-1)/2))+1],
+                                   condition_val=test_data[:int(math.floor((len(integer2i)-1)/2))+1],
                                    test_func=None,
                                    test_args=None
                                    )[0] == True
@@ -1453,23 +1371,106 @@ def _test_spark_rdd_kv_read_query2iRange(N, spark_context, docker_cli, riak_clie
                                    args=[ 'integer_index', integer2i[ int(math.floor((len(integer2i)-1)/2))], integer2i[-1] ],
                                    use_condition=True, 
                                    condition_func=kv_query_condition, 
-                                   condition_val=test_data[ int(math.floor((len(integer2i)-1)/2)): ],
+                                   condition_val=test_data[int(math.floor((len(integer2i)-1)/2)):],
                                    test_func=None,
                                    test_args=None
                                    )[0] == True
 
+    assert retry_func_with_timeout(func=spark_context.riakBucket("test-python-bucket-9", "default").query2iRange,
+                                   times=10, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=[ 'integer_index', N, 2*N ],
+                                   use_condition=True, 
+                                   condition_func=kv_query_condition, 
+                                   condition_val=[],
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+def _test_spark_rdd_kv_read_partition_by_2i_range(N, spark_context, docker_cli, riak_client, sql_context):
 
 
+    bucket = riak_client.bucket_type('default').bucket('test-python-bucket-11')
+    test_data = []
+    integer2i = []
+    partitions = ['integer_index']
+    bad_partitions = ['integer_index']
+
+    for i in range(N):
+
+        obj = riak.RiakObject(riak_client, bucket, str('key'+str(i)))
+        obj.content_type = 'application/json'
+        obj.data = {u'data' : i}
+        obj.add_index('integer_index_int', i)
+
+        assert retry_func_with_timeout(func=obj.store, 
+                                           times=5, 
+                                           timeout=2, 
+                                           signal=True, 
+                                           args=[], 
+                                           use_condition=False, 
+                                           condition_func=None, 
+                                           condition_val=None,
+                                           test_func=None,
+                                           test_args=None
+                                           )[0] == True
+
+        test_data.append((str('key'+str(i)),{u'data' : i}))
+        integer2i.append(i)
+        partitions.append((i,i))
+        bad_partitions.append((N+i,N+i))
+
+
+    assert retry_func_with_timeout(func=spark_context.riakBucket("test-python-bucket-11", "default").partitionBy2iRanges,
+                                   times=10, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=partitions,
+                                   use_condition=True, 
+                                   condition_func=kv_partition_condition, 
+                                   condition_val=[test_data, N],
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+    assert retry_func_with_timeout(func=spark_context.riakBucket("test-python-bucket-11", "default").partitionBy2iRanges,
+                                   times=10, 
+                                   timeout=3, 
+                                   signal=True, 
+                                   args=bad_partitions,
+                                   use_condition=True, 
+                                   condition_func=kv_partition_condition, 
+                                   condition_val=[[], N],
+                                   test_func=None,
+                                   test_args=None
+                                   )[0] == True
+
+###### Run Tests ######
 
 def test_spark_riak_connector_kv(spark_context, docker_cli, riak_client, sql_context):
 
     _test_connection(spark_context, docker_cli, riak_client, sql_context)
-    #_test_spark_rdd_write_kv(1000, spark_context, docker_cli, riak_client, sql_context)
-    #_test_spark_df_kv_read_query_all(5, spark_context, docker_cli, riak_client, sql_context)
-    #_test_spark_rdd_kv_read_query_bucket_keys(10, spark_context, docker_cli, riak_client, sql_context)
-    ##_test_spark_rdd_kv_read_query_2i_keys(100, spark_context, docker_cli, riak_client, sql_context)
-    #_test_spark_df_kv_read_query2iKeys_one_entry(spark_context, docker_cli, riak_client, sql_context)
-    _test_spark_rdd_kv_read_query2iRange(5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_write_kv(1000, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query_all(5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query_bucket_keys(10, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query_2i_keys(100, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query2iRange(50, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_partition_by_2i_range(50, spark_context, docker_cli, riak_client, sql_context)
+
+def test_spark_riak_connector_ts(spark_context, docker_cli, riak_client, sql_context):
+
+    _test_connection(spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_write_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_write_use_long(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_read_use_timestamp(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_read_use_timestamp_ts_quantum(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_read_use_long(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_read_use_long_ts_quantum(1000, 5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_range_query_input_split_count_use_long(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_range_query_input_split_count_use_long_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_range_query_input_split_count_use_timestamp(1, 500, 1, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_df_ts_range_query_input_split_count_use_timestamp_ts_quantum(100, 500, 1, spark_context, docker_cli, riak_client, sql_context)
 
 
 
