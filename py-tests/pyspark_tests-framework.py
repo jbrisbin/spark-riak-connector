@@ -53,17 +53,20 @@ Reading datetime from ts using spark timestamp option will convert datetime back
 
 @pytest.fixture(scope="session")
 def docker_cli(request):
+    #Start spark context to get access to py4j gateway
     conf = SparkConf().setMaster("local[*]").setAppName("pytest-pyspark-py4j")
     sc = SparkContext(conf=conf)
     docker_cli = sc._gateway.jvm.com.basho.riak.test.cluster.DockerRiakCluster(1, 1)
     docker_cli.start()
     sc.stop()
+    #Start spark context since it's not aware of riak nodes and thus can't be used to test riak
     request.addfinalizer(lambda: docker_cli.stop())
     return docker_cli
 @pytest.mark.usefixtures("docker_cli")
 
 @pytest.fixture(scope="session")
 def spark_context(request, docker_cli):
+    #Start new spark context and pass docker nodes as hosts
     conf = SparkConf().setMaster("local[*]").setAppName("pytest-pyspark-local-testing")
     host_and_port = get_host_and_port(docker_cli)
     conf.set('spark.riak.connection.host', host_and_port)
@@ -787,7 +790,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_long(N, M, S,spark_conte
                                    condition_val=test_df,
                                    test_func=None,
                                    test_args=None
-                                   )[0] == False   
+                                   )[0] == True
     
 
     test_func_c = sql_context.read.format("org.apache.spark.sql.riak") \
@@ -1060,7 +1063,7 @@ def _test_spark_df_ts_range_query_input_split_count_use_timestamp_ts_quantum(N, 
                                    condition_val=test_df,
                                    test_func=None,
                                    test_args=None
-                                   )[0] == False   
+                                   )[0] == True   
 
     '''
     
@@ -1417,12 +1420,12 @@ def _test_spark_rdd_kv_read_partition_by_2i_range(N, spark_context, docker_cli, 
 def test_spark_riak_connector_kv(spark_context, docker_cli, riak_client, sql_context):
 
     _test_connection(spark_context, docker_cli, riak_client, sql_context)
-    #_test_spark_rdd_write_kv(10, spark_context, docker_cli, riak_client, sql_context)
-    # _test_spark_rdd_kv_read_query_all(5, spark_context, docker_cli, riak_client, sql_context)
-    # _test_spark_rdd_kv_read_query_bucket_keys(10, spark_context, docker_cli, riak_client, sql_context)
-    # _test_spark_rdd_kv_read_query_2i_keys(100, spark_context, docker_cli, riak_client, sql_context)
-    # _test_spark_rdd_kv_read_query2iRange(50, spark_context, docker_cli, riak_client, sql_context)
-    # _test_spark_rdd_kv_read_partition_by_2i_range(50, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_write_kv(10, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query_all(5, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query_bucket_keys(10, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query_2i_keys(100, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_query2iRange(50, spark_context, docker_cli, riak_client, sql_context)
+    _test_spark_rdd_kv_read_partition_by_2i_range(50, spark_context, docker_cli, riak_client, sql_context)
 
 def test_spark_riak_connector_ts(spark_context, docker_cli, riak_client, sql_context):
 
