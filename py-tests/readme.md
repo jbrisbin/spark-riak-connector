@@ -1,0 +1,1 @@
+sudo SPARK_HOME={spark_home_dir} SPARK_CLASSPATH={/path/to/riak-test-docker-.jar}:{/path/to/spark-riak-connector-uber.jar} py.test pyspark_tests.py -s
