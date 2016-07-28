@@ -19,6 +19,7 @@
 #
 
 FWDIR="$(cd "`dirname "$0"`"/..; pwd)"
+BASEDIR=$(echo "$(pwd)" | awk -F "/examples" '{print $1}')
 export EXAMPLES_HOME="$FWDIR"
 
 . "$FWDIR"/conf/config.sh
