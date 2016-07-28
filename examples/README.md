@@ -123,8 +123,6 @@ In the demo we are going to generate descriptive and summary statistics from the
 * What is the probability distribution of the vessel tonnage for vessels on the list? (supporting chart: histogram)
 * What are the most common titles of the individuals on the list? (see output during execution)
 
-We'll support our answers by drawing appropriate charts.
-
 You can run the demo locally by:
 ```
 bin/run-example demos.ofac.OFACDemo
