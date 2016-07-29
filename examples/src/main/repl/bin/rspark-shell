@@ -24,6 +24,27 @@ export EXAMPLES_HOME="$FWDIR"
 
 . "$FWDIR"/conf/config.sh
 
+file="../../../../project/Versions.scala"
+
+if [ -f "$file" ]
+then
+  while IFS=' = ' read -r key value
+  do
+    if [[ $value == spark* ]] || [[ $value == kafka* ]];
+    then
+        key=$(echo $key | tr '.' '_')
+        IFS='= ' read -a myarray <<< "$value"
+        if [[ $value == spark* ]]; then SPARK_VERSION=$(echo "${myarray[1]}" | tr -d \")
+        else KAFKA_VERSION=$(echo "${myarray[1]}" | tr -d \")
+        fi
+    fi
+  done < "$file"
+else
+  echo "$file not found."
+fi
+
+SCALA_VERSION=$(scala -version 2>&1 | grep -i version | awk '{ print substr($5, 0, 4); }')
+
 spark-shell --jars $SPARK_JARS \
 	--conf spark.riak.connection.host=$RIAK_HOST:$RIAK_PORT \
 	--conf kafka.broker=$KAFKA_BROKER \
