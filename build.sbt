@@ -56,11 +56,11 @@ lazy val examples = (project in file("examples"))
   .settings(
     name := s"$namespace-examples",
     libraryDependencies ++= Seq(
-      "org.apache.spark"              %% "spark-streaming-kafka" % Versions.spark % "provided",
-      "org.apache.kafka"              %% "kafka"                 % Versions.kafka))
+      "org.apache.spark"              %% "spark-streaming-kafka" % Versions.spark,
+      "org.apache.kafka"              %% "kafka"                 % Versions.kafka),
+    customMergeStrategy)
   .settings(publishSettings)
   .dependsOn(sparkRiakConnector, sparkRiakConnectorTestUtils)
-  .disablePlugins(AssemblyPlugin)
 
 lazy val sparkRiakConnectorTestUtils = (project in file("test-utils"))
   .settings(commonSettings: _*)
@@ -125,6 +125,7 @@ lazy val commonDependencies = Seq(
 
 lazy val customMergeStrategy = assemblyMergeStrategy in assembly := {
   case PathList("javax", "servlet", xs @ _*)         => MergeStrategy.first
+  case PathList("org", "apache", "spark", "unused", xs @ _*)  => MergeStrategy.first
   case PathList(ps @ _*) if ps.last endsWith ".html" => MergeStrategy.first
   case "application.conf"                            => MergeStrategy.concat
   case "reference.conf"                              => MergeStrategy.concat

@@ -19,7 +19,7 @@ It also comes with a helper for running a ready-to-go [bootstrapped Spark shell]
 
 3. Then, install the dependencies (we will skip integration tests to speed things up):
 ```
-sbt clean package assembly
+sbt clean assembly
 ```
 
 4. Go to examples repl folder:
@@ -139,6 +139,37 @@ bin/run-example parquet.ScalaRiakParquetExample
 ```
 
 Sources [ScalaRiakParquetExample.scala](./src/main/scala/com/basho/riak/spark/examples/parquet/ScalaRiakParquetExample.scala)
+
+## Streaming Scala Riak KV Example
+Simple demo for Spark streaming job integration. For correct execution:
+*   kafka broker must be installed and running;
+*   'streaming' topic must be created;
+*   Riak KV, kafka and spark master hostnames must be specified in [config.sh](./src/main/repl/conf/config.sh) 
+
+Run it locally:
+```
+bin/run-example streaming.StreamingKVExample
+```
+This will start Spark streaming job waiting for your kafka messages.
+
+Sources [StreamingKVExample.scala](./src/main/scala/com/basho/riak/spark/examples/streaming/StreamingKVExample.scala)
+
+## Streaming Scala Riak TS Example
+Simple demo for Spark streaming job integration. For correct execution:
+*   kafka broker must be installed and running;
+*   'streaming' topic must be created;
+*   Riak TS, kafka and spark master hostnames must be specified in [config.sh](./src/main/repl/conf/config.sh) 
+
+Run it locally:
+```
+bin/run-example streaming.StreamingTSExample
+```
+This will start Spark streaming job waiting for your messages. Message format should be the same as in the example below:
+```
+{"time": "2016-01-01 08:30:00.000", "weather": "sunny", "temperature": 25.0, "humidity": 67.0, "pressure": 30.20, "family": "f"}
+```
+
+Sources [StreamingKVExample.scala](./src/main/scala/com/basho/riak/spark/examples/streaming/StreamingKVExample.scala)
 
 ## Run Python examples in Jupyter notebook
 To run Python examples in [Jupyter](http://jupyter.readthedocs.io/en/latest/index.html) you need:

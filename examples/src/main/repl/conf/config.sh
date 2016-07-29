@@ -23,14 +23,16 @@
 MASTER_URL="local"
 
 # Riak connection host for spark-riak-connector
-RIAK_HOST="10.124.118.179"
+RIAK_HOST="127.0.0.1"
 
 # Riak connection port for spark-riak-connector
-RIAK_PORT="31018"
+RIAK_PORT="8087"
+
+KAFKA_BROKER="127.0.0.1:9092"
 
 DRIVER_MEM="512M"
 EXECUTOR_MEM="512M"
 
 
 SPARK_JARS=$(echo $BASEDIR/connector/target/scala-*/*-uber.jar | tr ' ' ',')
-EXAMPLES_JARS=$(echo $BASEDIR/examples/target/scala-*/*.jar | tr ' ' ',')
+EXAMPLES_JARS=$(echo $BASEDIR/examples/target/scala-*/*-assembly-*.jar | tr ' ' ',')
