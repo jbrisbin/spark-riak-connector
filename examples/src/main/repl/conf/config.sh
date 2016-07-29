@@ -22,6 +22,11 @@
 # Spark Master URL
 MASTER_URL="local"
 
+# Dependency management
+SCALA_VERSION="2.10"
+SPARK_VERSION="1.6.1"
+KAFKA_VERSION="0.8.2.2"
+
 # Riak connection host for spark-riak-connector
 RIAK_HOST="127.0.0.1"
 
@@ -35,4 +40,4 @@ EXECUTOR_MEM="512M"
 
 
 SPARK_JARS=$(echo $BASEDIR/connector/target/scala-*/*-uber.jar | tr ' ' ',')
-EXAMPLES_JARS=$(echo $BASEDIR/examples/target/scala-*/*-assembly-*.jar | tr ' ' ',')
+EXAMPLES_JARS=$(echo $BASEDIR/examples/target/scala-*/*.jar | tr ' ' ',')

@@ -2,13 +2,15 @@
 Riak Spark connector comes with several sample programs and demos:
 
 - [Simple Scala example](#simple-scala-example)
-- [Simple Scala RiakTS example](#simple-scala-ts-example)
+- [Simple Scala RiakTS example](#simple-scala-riakts-example)
 - [Simple Scala DataFrame example](#simple-scala-dataframe-example)
-- [Simple Scala RiakTS DatFrame example](#simple-scala-ts-dataframe-example)
+- [Simple Scala RiakTS DatFrame example](#simple-scala-riakts-dataframe-example)
 - [Simple Java example](#simple-java-example)
 - [Simple Java RiakTS example](#simple-java-riakts-example)
 - [OFAC demo](#ofac-demo)
-- [Scala Riak TS Parquet Example](#scala-riakts-parquet-example)
+- [Scala RiakTS Parquet Example](#scala-riakts-parquet-example)
+- [Streaming Scala RiakKV Example](#streaming-scala-riakkv-example)
+- [Streaming Scala RiakTS Example](#streaming-scala-riakts-example)
 
 It also comes with a helper for running a ready-to-go [bootstrapped Spark shell](#interactive-scala-shell).
 
@@ -19,7 +21,7 @@ It also comes with a helper for running a ready-to-go [bootstrapped Spark shell]
 
 3. Then, install the dependencies (we will skip integration tests to speed things up):
 ```
-sbt clean assembly
+sbt clean package assembly
 ```
 
 4. Go to examples repl folder:
@@ -130,7 +132,7 @@ bin/run-example demos.ofac.OFACDemo
 
 Sources [OFACDemo.scala](./src/main/scala/com/basho/riak/spark/examples/demos/ofac/OFACDemo.scala)
 
-## Simple Scala Riak TS Parquet Example
+## Simple Scala RiakTS Parquet Example
 Simple demo which illustrates how data can be extracted from Riak TS and saved as a parquet file 
 
 Run it locally:
@@ -140,7 +142,7 @@ bin/run-example parquet.ScalaRiakParquetExample
 
 Sources [ScalaRiakParquetExample.scala](./src/main/scala/com/basho/riak/spark/examples/parquet/ScalaRiakParquetExample.scala)
 
-## Streaming Scala Riak KV Example
+## Streaming Scala RiakKV Example
 Simple demo for Spark streaming job integration. For correct execution:
 *   kafka broker must be installed and running;
 *   'streaming' topic must be created;
@@ -154,7 +156,7 @@ This will start Spark streaming job waiting for your kafka messages.
 
 Sources [StreamingKVExample.scala](./src/main/scala/com/basho/riak/spark/examples/streaming/StreamingKVExample.scala)
 
-## Streaming Scala Riak TS Example
+## Streaming Scala RiakTS Example
 Simple demo for Spark streaming job integration. For correct execution:
 *   kafka broker must be installed and running;
 *   'streaming' topic must be created;

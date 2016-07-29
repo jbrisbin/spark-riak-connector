@@ -42,6 +42,7 @@ fi
 spark-submit --jars $SPARK_JARS \
     --class $EXAMPLE_CLASS \
     --master $MASTER_URL \
+    --packages org.apache.spark:spark-streaming-kafka_$SCALA_VERSION:$SPARK_VERSION,org.apache.kafka:kafka_$SCALA_VERSION:$KAFKA_VERSION \
     --conf spark.riak.connection.host=$RIAK_HOST:$RIAK_PORT \
     --conf kafka.broker=$KAFKA_BROKER \
     --driver-memory $DRIVER_MEM \
