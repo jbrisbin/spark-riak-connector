@@ -4,7 +4,7 @@ Riak Spark connector comes with several sample programs and demos:
 - [Simple Scala example](#simple-scala-example)
 - [Simple Scala RiakTS example](#simple-scala-riakts-example)
 - [Simple Scala DataFrame example](#simple-scala-dataframe-example)
-- [Simple Scala RiakTS DatFrame example](#simple-scala-riakts-dataframe-example)
+- [Simple Scala RiakTS DataFrame example](#simple-scala-riakts-dataframe-example)
 - [Simple Java example](#simple-java-example)
 - [Simple Java RiakTS example](#simple-java-riakts-example)
 - [OFAC demo](#ofac-demo)
@@ -73,7 +73,7 @@ bin/run-example dataframes.SimpleScalaRiakDataframesExample
 
 Sources [SimpleScalaRiakDataframesExample.scala](./src/main/scala/com/basho/riak/spark/examples/dataframes/SimpleScalaRiakDataframesExample.scala)
 
-## Simple Scala Riak TS DataFrame Example
+## Simple Scala RiakTS DataFrame example
 This Scala example demonstrates how to use Spark Dataframes with Riak TS 
 
 Run it locally:
@@ -132,7 +132,7 @@ bin/run-example demos.ofac.OFACDemo
 
 Sources [OFACDemo.scala](./src/main/scala/com/basho/riak/spark/examples/demos/ofac/OFACDemo.scala)
 
-## Simple Scala RiakTS Parquet Example
+## Scala RiakTS Parquet Example
 Simple demo which illustrates how data can be extracted from Riak TS and saved as a parquet file 
 
 Run it locally:
