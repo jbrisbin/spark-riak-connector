@@ -537,7 +537,7 @@ conf.set("spark.riak.connections.min", "50")
 
 ## Spark Streaming
 
-As stated in the [official Spark Streaming documentaition](http://spark.apache.org/docs/latest/streaming-programming-guide.html), "Spark Streaming is an extension of the core Spark API that enables scalable, high-throughput, fault-tolerant stream processing of live data streams. Data can be ingested from many sources like Kafka, Flume, Kinesis, or TCP sockets, and can be processed using complex algorithms expressed with high-level functions like map, reduce, join and window."
+As stated in the [official Spark Streaming documentation](http://spark.apache.org/docs/latest/streaming-programming-guide.html), "Spark Streaming is an extension of the core Spark API that enables scalable, high-throughput, fault-tolerant stream processing of live data streams. Data can be ingested from many sources like Kafka, Flume, Kinesis, or TCP sockets, and can be processed using complex algorithms expressed with high-level functions like map, reduce, join and window."
 
 ### The Basic Idea
 
