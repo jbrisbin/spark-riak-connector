@@ -542,7 +542,8 @@ As stated in the [official Spark Streaming documentation](http://spark.apache.or
 ### The Basic Idea
 
 #### Spark Streaming
-Here is a basic Spark Streaming sample which writes to the console with `wordCounts.print()`:
+
+Here is a basic Spark Streaming sample which writes to the console with `errorlines.print()`:
 
 Create a StreamingContext with a SparkConf configuration
 ```scala
@@ -561,10 +562,10 @@ Count all lines with 'ERROR' in each batch
     println(errorcount)
 ```
 
-Print a few of the counts to the console.
+Print a few of the error lines to the console.
 Start the computation.
 ```scala
-    wordCounts.print()
+    errorlines.print()
     ssc.start()  
     ssc.awaitTermination() // Wait for the computation to terminate
 ```
@@ -579,7 +580,7 @@ To add Riak-related features to the `StreamingContext` and `RDD` it's required t
 
 And after that we can simply replace the print to console with pipe the output to Riak:
 ```scala
-    wordCounts.saveToRiak("test-bucket-4store")
+    errorlines.saveToRiak("test-bucket-4store")
 ```
 
 ### Setting up Streaming
