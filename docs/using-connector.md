@@ -597,7 +597,7 @@ The streaming context has only two parameters which are required for minimal con
 
 #### Creating A Stream
 
-You can create any of the available Spark streams or customize your own streams. Please see following [paragraph](http://spark.apache.org/docs/latest/streaming-programming-guide.html#basic-sources) from Spark documentation for more details.
+You can create any of the available Spark streams or customize your own streams. Please see [this section](http://spark.apache.org/docs/latest/streaming-programming-guide.html#basic-sources) from the Spark documentation for more details.
 
 #### Enable Spark Streaming With Riak
 
@@ -617,7 +617,7 @@ Saving data to KV:
     ssc.start() // start computation
 ```
 
-The difference between writing to KV and TS is really small. To meet the requirements of TS, it's necessary to convert data into Spark Row object.
+The difference between writing to KV and TS is really small. To meet the requirements of TS, it is necessary to convert data into Spark Row object.
 Saving data to TS:
 ```scala
     stream
@@ -628,7 +628,7 @@ Saving data to TS:
 
 #### Reading From Riak From The `StreamingContext`
 
-Since Riak-specific `StreamingContext` extends usual Riak-specific `SparkContext`, it's possible to read data from Riak using `StreamingContext`:
+Since Riak-specific `StreamingContext` extends usual Riak-specific `SparkContext`, it is possible to read data from Riak using `StreamingContext`:
 ```scala
     var rdd = ssc.riakBucket(DEFAULT_NAMESPACE_4STORE).queryAll()
 ```
