@@ -545,25 +545,27 @@ As stated in the [official Spark Streaming documentation](http://spark.apache.or
 
 Here is a basic Spark Streaming sample which writes to the console with `errorlines.print()`:
 
-Create a StreamingContext with a SparkConf configuration
+Create a StreamingContext with a SparkConf configuration:
+
 ```scala
     val ssc = new StreamingContext(sparkConf, Seconds(1))
 ```
 
-Create a DStream that will connect to serverIP:serverPort 
+Create a DStream that will connect to serverIP:serverPort:
+
 ```scala
     val lines = ssc.socketTextStream(serverIP, serverPort)
 ```
 
-Count all lines with 'ERROR' in each batch
+Count all lines with 'ERROR' in each batch:
+
 ```scala
     val errorlines = lines.filter(lines => lines contains "ERROR")
     val errorcount = errorlines.count()
     println(errorcount)
 ```
 
-Print a few of the error lines to the console.
-Start the computation.
+Print a few of the error lines to the console and start the stream:
 ```scala
     errorlines.print()
     ssc.start()  
@@ -588,6 +590,7 @@ And after that we can simply replace the print statement with a `saveToRiak` cal
 #### Create A 'StreamingContext'
 
 The streaming context has only two parameters which are required for minimal configuration. The first one is `sparkConf`. Please see [how to create and use `SparkConf`](using-connector.md#configuration-of-spark-context) for more information. The second required parameter is the `batchDuration` which sets the interval in which streaming data will be divided into batches: Note the Spark API provides a Milliseconds, Seconds, Minutes, all of which are accepted as a `Duration`. This `Duration` is not to be confused with the [scala.concurrent.duration.Duration](http://www.scala-lang.org/api/current/index.html#scala.concurrent.duration.Duration) 
+
 ```scala
     val ssc = new StreamingContext(conf, Seconds(n))
 ```
