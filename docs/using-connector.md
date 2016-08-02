@@ -585,7 +585,7 @@ And after that we can simply replace the print statement with a `saveToRiak` cal
 
 ### Setting up Streaming
 
-#### Create A `StreamingContext`
+#### Create A 'StreamingContext'
 
 The streaming context has only two parameters which are required for minimal configuration. The first one is `sparkConf`. Please see [how to create and use `SparkConf`](using-connector.md#configuration-of-spark-context) for more information. The second required parameter is the `batchDuration` which sets the interval in which streaming data will be divided into batches: Note the Spark API provides a Milliseconds, Seconds, Minutes, all of which are accepted as a `Duration`. This `Duration` is not to be confused with the [scala.concurrent.duration.Duration](http://www.scala-lang.org/api/current/index.html#scala.concurrent.duration.Duration) 
 ```scala
@@ -604,7 +604,7 @@ The following enables Riak-related functions on the `StreamingContext`, `DStream
     import com.basho.riak.spark.streaming._
 ```
 
-##### Writing to Riak From A Stream
+#### Writing to Riak From A Stream
 
 The data can be stored either to KV or TS storage.
 
@@ -623,7 +623,7 @@ Saving data to TS:
     ssc.start() // start computation
 ```
 
-##### Reading From Riak From The `StreamingContext`
+#### Reading From Riak From The `StreamingContext`
 
 Since Riak-specific `StreamingContext` extends usual Riak-specific `SparkContext`, it's possible to read data from Riak using `StreamingContext`:
 ```scala
