@@ -172,16 +172,3 @@ This will start Spark streaming job waiting for your messages. Message format sh
 ```
 
 Sources [StreamingKVExample.scala](./src/main/scala/com/basho/riak/spark/examples/streaming/StreamingKVExample.scala)
-
-## Run Python examples in Jupyter notebook
-To run Python examples in [Jupyter](http://jupyter.readthedocs.io/en/latest/index.html) you need:
-
-* Running Jupyter (you can follow [these](http://jupyter.readthedocs.io/en/latest/install.html) instructions or use official Docker [image](https://hub.docker.com/r/jupyter/pyspark-notebook/))
-* Upload your .ipynb file
-* Update all connection properties like Riak host and port
-* Provide valid path to spark-riak-connector.jar:
-```
-import os
-os.environ['PYSPARK_SUBMIT_ARGS'] = '--jars /home/dev/spark-riak-connector-1.5.2-SNAPSHOT-uber.jar pyspark-shell'
-```
-* Run your Python code
