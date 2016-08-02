@@ -17,6 +17,7 @@ Scroll down or click below for the desired information:
 - [Working With TS Dates](./using-connector.md#working-with-ts-dates)
 - [TS Table Range Query Partitioning](./using-connector.md#ts-table-range-query-partitioning)
 - [TS Bulk Write](./using-connector.md#ts-bulk-write)
+- [Spark Streaming](./using-connector.md#spark-streaming)
 - [Spark Streaming Example](./using-connector.md#spark-streaming-example)
 - [Using Java With The Connector](./using-connector.md#using-java-with-the-connector)
 
@@ -533,6 +534,104 @@ conf = pyspark.SparkConf()
 conf.set("spark.riakts.write.bulk-size", "500")
 conf.set("spark.riak.connections.min", "50")
 ```
+
+## Spark Streaming
+
+As stated in the [official Spark Streaming documentaition](http://spark.apache.org/docs/latest/streaming-programming-guide.html), "Spark Streaming is an extension of the core Spark API that enables scalable, high-throughput, fault-tolerant stream processing of live data streams. Data can be ingested from many sources like Kafka, Flume, Kinesis, or TCP sockets, and can be processed using complex algorithms expressed with high-level functions like map, reduce, join and window."
+
+### The Basic Idea
+
+#### Spark Streaming
+Here is a basic Spark Streaming sample which writes to the console with `wordCounts.print()`:
+
+Create a StreamingContext with a SparkConf configuration
+```scala
+    val ssc = new StreamingContext(sparkConf, Seconds(1))
+```
+
+Create a DStream that will connect to serverIP:serverPort 
+```scala
+    val lines = ssc.socketTextStream(serverIP, serverPort)
+```
+
+Count all lines with 'ERROR' in each batch
+```scala
+    val errorlines = lines.filter(lines => lines contains "ERROR")
+    val errorcount = errorlines.count()
+    println(errorcount)
+```
+
+Print a few of the counts to the console.
+Start the computation.
+```scala
+    wordCounts.print()
+    ssc.start()  
+    ssc.awaitTermination() // Wait for the computation to terminate
+```
+
+#### Spark Streaming With Riak
+
+To add Riak-related features to the `StreamingContext` and `RDD` it's required to add some packages into scope:
+
+```scala
+    import com.basho.riak.spark.streaming._
+```
+
+And after that we can simply replace the print to console with pipe the output to Riak:
+```scala
+    wordCounts.saveToRiak("test-bucket-4store")
+```
+
+### Setting up Streaming
+
+#### Create A `StreamingContext`
+
+Streaming context has only two parameters which are required for minimal configuration. The first one is `sparkConf`.Please see [how to create and use `SparkConf`](using-connector.md#configuration-of-spark-context). The second required parameter is the `batchDuration` which sets the interval streaming data will be divided into batches: Note the Spark API provides a Milliseconds, Seconds, Minutes, all of which are accepted as this `Duration`. This `Duration` is not to be confused with the [scala.concurrent.duration.Duration](http://www.scala-lang.org/api/current/index.html#scala.concurrent.duration.Duration) 
+```scala
+    val ssc = new StreamingContext(conf, Seconds(n))
+```
+
+#### Creating A Stream
+
+Create any of the available or custom Spark streams. Please see following [paragraph](http://spark.apache.org/docs/latest/streaming-programming-guide.html#basic-sources) from Spark documentation for more details.
+
+#### Enable Spark Streaming With Riak
+
+Enable Riak-related functions on the `StreamingContext`, `DStream` and `RDD`:
+
+```scala
+    import com.basho.riak.spark.streaming._
+```
+
+##### Writing to Riak From A Stream
+
+The data could be stored either to KV or TS storage.
+
+Saving data to KV:
+```scala
+    stream.saveToRiak(DEFAULT_NAMESPACE_4STORE.getBucketNameAsString)
+    ssc.start() // start computation
+```
+
+The difference between writing to KV and TS is really small. As far as data structure is required for TS, it's necessary to convert data into Spark Row object.
+Saving data to TS:
+```scala
+    stream
+        .map(data => Row(...)
+        .saveToRiak(DEFAULT_NAMESPACE_4STORE.getBucketNameAsString)
+    ssc.start() // start computation
+```
+
+##### Reading From Riak From The `StreamingContext`
+
+Since Riak-specific `StreamingContext` extends usual Riak-specific `SparkContext`, it's possible to read data from Riak using `StreamingContext`:
+```scala
+    var rdd = ssc.riakBucket(DEFAULT_NAMESPACE_4STORE).queryAll()
+```
+
+### Find out more
+http://spark.apache.org/docs/latest/streaming-programming-guide.html
+
 
 ## Spark Streaming Example
 
