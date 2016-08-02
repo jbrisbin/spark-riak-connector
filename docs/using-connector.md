@@ -572,13 +572,13 @@ Start the computation.
 
 #### Spark Streaming With Riak
 
-To add Riak-related features to the `StreamingContext` and `RDD` it's required to add some packages into scope:
+To add Riak related features to the `StreamingContext` and `RDD` it is required to add some packages into the scope:
 
 ```scala
     import com.basho.riak.spark.streaming._
 ```
 
-And after that we can simply replace the print to console with pipe the output to Riak:
+And after that we can simply replace the print statement with a `saveToRiak` call:
 ```scala
     errorlines.saveToRiak("test-bucket-4store")
 ```
@@ -587,18 +587,18 @@ And after that we can simply replace the print to console with pipe the output t
 
 #### Create A `StreamingContext`
 
-Streaming context has only two parameters which are required for minimal configuration. The first one is `sparkConf`.Please see [how to create and use `SparkConf`](using-connector.md#configuration-of-spark-context). The second required parameter is the `batchDuration` which sets the interval streaming data will be divided into batches: Note the Spark API provides a Milliseconds, Seconds, Minutes, all of which are accepted as this `Duration`. This `Duration` is not to be confused with the [scala.concurrent.duration.Duration](http://www.scala-lang.org/api/current/index.html#scala.concurrent.duration.Duration) 
+The streaming context has only two parameters which are required for minimal configuration. The first one is `sparkConf`. Please see [how to create and use `SparkConf`](using-connector.md#configuration-of-spark-context) for more information. The second required parameter is the `batchDuration` which sets the interval in which streaming data will be divided into batches: Note the Spark API provides a Milliseconds, Seconds, Minutes, all of which are accepted as a `Duration`. This `Duration` is not to be confused with the [scala.concurrent.duration.Duration](http://www.scala-lang.org/api/current/index.html#scala.concurrent.duration.Duration) 
 ```scala
     val ssc = new StreamingContext(conf, Seconds(n))
 ```
 
 #### Creating A Stream
 
-Create any of the available or custom Spark streams. Please see following [paragraph](http://spark.apache.org/docs/latest/streaming-programming-guide.html#basic-sources) from Spark documentation for more details.
+You can create any of the available Spark streams or customize your own streams. Please see following [paragraph](http://spark.apache.org/docs/latest/streaming-programming-guide.html#basic-sources) from Spark documentation for more details.
 
 #### Enable Spark Streaming With Riak
 
-Enable Riak-related functions on the `StreamingContext`, `DStream` and `RDD`:
+The following enables Riak-related functions on the `StreamingContext`, `DStream` and `RDD`:
 
 ```scala
     import com.basho.riak.spark.streaming._
@@ -606,7 +606,7 @@ Enable Riak-related functions on the `StreamingContext`, `DStream` and `RDD`:
 
 ##### Writing to Riak From A Stream
 
-The data could be stored either to KV or TS storage.
+The data can be stored either to KV or TS storage.
 
 Saving data to KV:
 ```scala
@@ -614,7 +614,7 @@ Saving data to KV:
     ssc.start() // start computation
 ```
 
-The difference between writing to KV and TS is really small. As far as data structure is required for TS, it's necessary to convert data into Spark Row object.
+The difference between writing to KV and TS is really small. To meet the requirements of TS, it's necessary to convert data into Spark Row object.
 Saving data to TS:
 ```scala
     stream
