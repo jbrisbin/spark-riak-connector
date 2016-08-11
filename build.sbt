@@ -16,6 +16,8 @@
   * under the License.
   */
 
+import java.util
+
 import com.spotify.docker.client.DefaultDockerClient
 import sbt.ExclusionRule
 import sbt.Keys._
@@ -208,13 +210,21 @@ addCommandAlias("runNonIntegrationTests", "testOnly -- --exclude-categories=com.
 
 lazy val publishSettings = Seq(
   publishTo := {
-    val artifactory = "https://basholabs.artifactoryonline.com/basholabs"
-    if (version.value.trim.endsWith("SNAPSHOT"))
-      Some("Artifactory Realm" at s"$artifactory/libs-snapshot-local")
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "content/repositories/snapshots")
     else
-      Some("Artifactory Realm" at s"$artifactory/libs-release-local")
+      Some("releases" at nexus + "service/local/staging/deploy/maven2")
   },
-  credentials := Seq(Credentials("Artifactory Realm", "basholabs.artifactoryonline.com",
-    Properties.envOrElse("ARTIFACTORY_USER", ""), Properties.envOrElse("ARTIFACTORY_PASS", ""))),
-  publishMavenStyle := true
+  publishMavenStyle := true,
+  pomIncludeRepository := { _ => false },
+  credentials := Seq(Credentials(
+    "Sonatype Nexus Repository Manager",
+    "oss.sonatype.org",
+    Properties.envOrElse("SONATYPE_USER", ""),
+    Properties.envOrElse("SONATYPE_PASS", "")
+  )),
+  pgpPassphrase := Some(Properties.envOrElse("PGP_PASSPHRASE", "").toCharArray),
+  pgpSecretRing := file("./secret.gpg"),
+  pgpPublicRing := file("./public.gpg")
 )

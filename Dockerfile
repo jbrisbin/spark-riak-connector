@@ -7,7 +7,7 @@ MAINTAINER Alexey Suprun <asuprun@contractor.basho.com>
 # --build-arg ARGUMENT_NAME=value
 ARG SBT_VERSION=0.13.12
 ARG SPARK_VERSION=1.6.1
-ARG SPARK_HADOOP_VERSION=2.6
+ARG SPARK_HADOOP_VERSION=hadoop2.6
 
 # Set env vars
 ENV SBT_HOME /usr/local/sbt
@@ -21,7 +21,7 @@ RUN apk add --no-cache curl bash python
 RUN curl -SL --retry 3 "http://dl.bintray.com/sbt/native-packages/sbt/$SBT_VERSION/sbt-$SBT_VERSION.tgz" | tar -xz -C /usr/local
 
 # Install Spark
-RUN curl -SL --retry 3 "http://www-eu.apache.org/dist/spark/spark-$SPARK_VERSION/spark-$SPARK_VERSION-bin-hadoop$SPARK_HADOOP_VERSION.tgz" | tar -xz -C /usr/local && \
+RUN curl -SL --retry 3 "http://www-eu.apache.org/dist/spark/spark-$SPARK_VERSION/spark-$SPARK_VERSION-bin-$SPARK_HADOOP_VERSION.tgz" | tar -xz -C /usr/local && \
     ln -s /usr/local/spark-$SPARK_VERSION-bin-hadoop$SPARK_HADOOP_VERSION $SPARK_HOME
 
 # Install test dependencies for Python

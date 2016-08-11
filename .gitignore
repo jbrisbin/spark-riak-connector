@@ -9,3 +9,5 @@ dependency-reduced-pom.xml
 nbactions.xml
 nb-configuration.xml
 .DS_Store
+secrets.tgz
+*.gpg
