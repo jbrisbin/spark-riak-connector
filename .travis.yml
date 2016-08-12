@@ -27,7 +27,12 @@ after_script:
   - docker rm -f $RIAK_FLAVOR
 
 script:
-  - sbt -Dcom.basho.riak.pbchost=localhost:8087 ++$TRAVIS_SCALA_VERSION test sparkRiakConnector/publishSigned
+  - if [ "$RIAK_FLAVOR" == "riak-ts" ]; then
+      sbt -Dcom.basho.riak.pbchost=localhost:8087 ++$TRAVIS_SCALA_VERSION runRiakTSTests
+    else
+      sbt -Dcom.basho.riak.pbchost=localhost:8087 ++$TRAVIS_SCALA_VERSION runRiakKVTests
+    fi
+  - sbt ++$TRAVIS_SCALA_VERSION sparkRiakConnector/publishSigned
 
 env:
   matrix:
