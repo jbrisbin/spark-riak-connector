@@ -21,18 +21,17 @@ before_install:
   - tar zxf secrets.tgz
 
 before_script:
-  - docker run --name $RIAK_FLAVOR -d -p 8087:8087 -p 8098:8098 basho/$RIAK_FLAVOR
+  - docker run --name $RIAK_FLAVOR -d -p 8087:8087 -p 8098:8098 basho/riak-ts
 
 after_script:
   - docker rm -f $RIAK_FLAVOR
 
 script:
   - if [ "$RIAK_FLAVOR" == "riak-ts" ]; then
-      sbt $PBC_OPTS ++$TRAVIS_SCALA_VERSION runRiakTSTests;
+      sbt $PBC_OPTS ++$TRAVIS_SCALA_VERSION test sparkRiakConnector/publishSigned;
     else
       sbt $PBC_OPTS ++$TRAVIS_SCALA_VERSION runRiakKVTests;
     fi
-  - sbt ++$TRAVIS_SCALA_VERSION sparkRiakConnector/publishSigned
 
 env:
   matrix:
