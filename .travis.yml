@@ -17,8 +17,7 @@ scala:
   - 2.11.7
 
 before_install:
-  - openssl aes-256-cbc -K $encrypted_e4898ca93742_key -iv $encrypted_e4898ca93742_iv -in secrets.tgz.enc -out secrets.tgz -d
-  - tar zxf secrets.tgz
+  - [ "false" == "$TRAVIS_PULL_REQUEST" ] && openssl aes-256-cbc -K $encrypted_e4898ca93742_key -iv $encrypted_e4898ca93742_iv -in secrets.tgz.enc -out secrets.tgz -d && tar -zxf secrets.tgz
 
 before_script:
   - docker run --name $RIAK_FLAVOR -d -p 8087:8087 -p 8098:8098 basho/riak-ts
