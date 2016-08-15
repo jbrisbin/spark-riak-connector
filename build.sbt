@@ -16,8 +16,6 @@
   * under the License.
   */
 
-import java.util
-
 import com.spotify.docker.client.DefaultDockerClient
 import sbt.ExclusionRule
 import sbt.Keys._
