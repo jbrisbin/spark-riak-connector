@@ -16,17 +16,14 @@ scala:
   - 2.10.6
   - 2.11.7
 
-before_install:
-  - [ "false" == "$TRAVIS_PULL_REQUEST" ] && openssl aes-256-cbc -K $encrypted_e4898ca93742_key -iv $encrypted_e4898ca93742_iv -in secrets.tgz.enc -out secrets.tgz -d && tar -zxf secrets.tgz
-
 before_script:
   - docker run --name $RIAK_FLAVOR -d -p 8087:8087 -p 8098:8098 basho/riak-ts
 
-after_script:
-  - docker rm -f $RIAK_FLAVOR
-
 script:
   - ./travis/build.sh
+
+after_script:
+  - docker rm -f $RIAK_FLAVOR
 
 env:
   matrix:
@@ -41,4 +38,4 @@ env:
 notifications:
   slack:
     rooms:
-      - $SLACK_TOKEN#eng_data-platform
+      - $SLACK_TOKEN
