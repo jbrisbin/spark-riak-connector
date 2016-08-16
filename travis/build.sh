@@ -1,6 +1,9 @@
 #!/bin/bash
 
+PBC_OPTS="-Dcom.basho.riak.pbchost=localhost:8087"
 SBT_CMD="sbt $PBC_OPTS ++$TRAVIS_SCALA_VERSION"
+
+set -e
 
 if [ "$RIAK_FLAVOR" == "riak-kv" ]; then
   $SBT_CMD runRiakKVTests
