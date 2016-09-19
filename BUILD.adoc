@@ -1,0 +1,119 @@
+= Spark Riak Connector
+
+:scala: 2.10.6
+:sbt: 0.13.12
+:spark: 1.6.2
+
+The Spark Riak connector requires Spark 1.6 (Spark 2.0 support is on the roadmap) and `sbt`. The primary build configuration is in the link:build.sbt[] file. To publish the connector to your local Ivy repository, use the http://www.scala-sbt.org/1.0/docs/Publishing.html#Publishing+Locally[publishLocal] sbt task. If you want to do anything more complicated than that, keep reading.
+
+Variables for this build, for which overrides can be provided at runtime via asciibuild's `-a` flag:
+
+.Variables
+* scala = {scala}
+* sbt = {sbt}
+* spark = {spark}
+
+== Before Build
+
+The `spark-riak-connector` can be built with sbt in most any development environment that can compile Scala code. There are some additional requirements to build the Python support, however, so it's recommended to use a Docker container to perform the build.
+
+This Docker container is based on https://alpinelinux.org/[Alpine Linux] because it generally produces the smallest image size and thus minimizes required packages in the image.
+
+[[container]]
+.Build Container
+[source,Dockerfile]
+[asciibuild,Dockerfile,image=spark-riak-connector,run=true,run_opts="-v /var/run/docker.sock:/var/run/docker.sock -v $(pwd):/usr/src -v $HOME/.m2:/root/.m2 -v $HOME/.ivy2:/root/.ivy2 -v $HOME/.sbt:/root/.sbt"]
+----
+FROM frolvlad/alpine-oraclejdk8
+
+# Env vars
+ENV SBT_HOME /usr/lib/sbt
+ENV SPARK_HOME /opt/spark
+ENV PATH $PATH:$SPARK_HOME/bin:$SBT_HOME/bin
+
+# Install essentials for build
+RUN apk add --no-cache curl bash python py-pip jq tar docker
+RUN pip install --upgrade pip setuptools pytest py4j findspark riak timeout_decorator tzlocal
+
+# Install SBT
+RUN mkdir -p $SBT_HOME
+RUN curl -q -sSL --retry 3 "http://dl.bintray.com/sbt/native-packages/sbt/{{sbt}}/sbt-{{sbt}}.tgz" | tar -zx -C $SBT_HOME --strip-components=1
+# Install Spark
+RUN mkdir -p $SPARK_HOME
+RUN curl -q -sSL --retry 3 "http://www-eu.apache.org/dist/spark/spark-{{spark}}/spark-{{spark}}-bin-hadoop2.6.tgz" | tar -zx -C $SPARK_HOME --strip-components=1
+
+VOLUME /usr/src
+WORKDIR /usr/src
+
+CMD "/bin/cat"
+----
+
+=== Start Riak Cluster
+
+The `spark-riak-connector` integration tests require a multi-node cluster. The following script starts a 3-node dockerized cluster and discovers the internal IP addresses using `docker inspect`.
+
+:ipaddr: {{.NetworkSettings.IPAddress}}
+:riak_image: basho/riak-ts
+:run_opts:
+
+.Variables
+* riak_image = {riak_image}
+* run_opts = {run_opts}
+
+.Start Riak Cluster
+[source,bash]
+[asciibuild,bash]
+----
+RUN_OPTS="--label=com.basho.riak.cluster.name=riak -d -P {{run_opts}}"
+
+COORDINATOR_CONTAINER=$(docker run $RUN_OPTS {{riak_image}})
+COORDINATOR_IP=$(docker inspect -f '{{ipaddr}}' $COORDINATOR_CONTAINER)
+
+docker exec $COORDINATOR_CONTAINER riak-admin wait-for-service riak_kv
+
+CLUSTER_NODES=$COORDINATOR_CONTAINER
+for worker in 2 3; do
+  CLUSTER_NODES+=" $(docker run $RUN_OPTS -e COORDINATOR_NODE=$COORDINATOR_IP {{riak_image}})"
+done
+
+for node in $CLUSTER_NODES; do
+  docker exec $node riak-admin wait-for-service riak_kv
+done
+echo $(docker inspect -f '{{ipaddr}}:8087' $CLUSTER_NODES | tr '\n' , | sed 's/,$//') >.RIAK_HOSTS
+----
+
+== Build
+
+The build consists of several parts, not all of which will be applicable in the context in which you want to build. For example, since the Python support will only work with Scala 2.10, then the PySpark tests don't have any relevance when running the Scala 2.11 cross-compile build.
+
+=== Package Artifacts
+
+Besides regular artifacts published to the local Ivy repository, the build produces an "uber" jar, which includes all the dependencies for the Spark connector shaded into a single jar. The `spPackage` task is for use with https://spark-packages.org/[spark-packages] and includes the Python PySpark support in the uber jar.
+
+[[package]]
+.Create assembly and spark-packages Package
+[asciibuild,bash,container="Build Container"]
+----
+sbt ++{{scala}} publishLocal assembly spPackage
+----
+
+=== Run Tests
+
+[[pyspark-tests]]
+.Run PySpark Tests
+[asciibuild,bash,container="Build Container"]
+----
+export RIAK_HOSTS=$(cat .RIAK_HOSTS)
+[[ "{{scala}}" =~ 2.10 ]] && sbt ++{{scala}} runPySparkTests
+----
+
+== After Build
+
+Clean up any containers left by force removing them. Figure out which containers need to be stopped by using the label attached to them when they were started in link:#container[].
+
+.Cleanup
+[source,bash]
+[asciibuild,bash]
+----
+include::cleanup.sh[]
+----
