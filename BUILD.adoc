@@ -102,7 +102,7 @@ sbt ++{{scala}} publishLocal assembly spPackage
 
 === Run Tests
 
-There are link:connector/src/test/scala[tests written in Scala] and link:connector/src/test/java[tests written in Java] as well as http://doc.pytest.org/[py.test] tests for the Python support. The `test` target runs the Java and Scala tests and the `runPySparkTests` run the py.test tests.
+There are link:connector/src/test/scala[tests written in Scala] and link:connector/src/test/java[tests written in Java] as well as link:connector/python/tests[py.test tests] footnote:[http://doc.pytest.org/] for the Python support. The `test` target runs the Java and Scala tests and the `runPySparkTests` run the `py.test` tests.
 
 [[tests]]
 .Run Tests
