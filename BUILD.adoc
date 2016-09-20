@@ -64,22 +64,25 @@ The `spark-riak-connector` integration tests require a multi-node cluster. The f
 [source,bash]
 [asciibuild,bash]
 ----
-RUN_OPTS="--label=com.basho.riak.cluster.name=riak -d -P {{run_opts}}"
+# Reset Mustache tags since they conflict with Go templates
+# {{=<% %>=}}
 
-COORDINATOR_CONTAINER=$(docker run $RUN_OPTS {{riak_image}})
-COORDINATOR_IP=$(docker inspect -f '{{ipaddr}}' $COORDINATOR_CONTAINER)
+RUN_OPTS="--label=com.basho.riak.cluster.name=riak -d -P <% run_opts %>"
+
+COORDINATOR_CONTAINER=$(docker run $RUN_OPTS <% riak_image %>)
+COORDINATOR_IP=$(docker inspect -f '{{.NetworkSettings.IPAddress}}' $COORDINATOR_CONTAINER)
 
 docker exec $COORDINATOR_CONTAINER riak-admin wait-for-service riak_kv
 
 CLUSTER_NODES=$COORDINATOR_CONTAINER
 for worker in 2 3; do
-  CLUSTER_NODES+=" $(docker run $RUN_OPTS -e COORDINATOR_NODE=$COORDINATOR_IP {{riak_image}})"
+  CLUSTER_NODES+=" $(docker run $RUN_OPTS -e COORDINATOR_NODE=$COORDINATOR_IP <% riak_image %>)"
 done
 
 for node in $CLUSTER_NODES; do
   docker exec $node riak-admin wait-for-service riak_kv
 done
-echo $(docker inspect -f '{{ipaddr}}:8087' $CLUSTER_NODES | tr '\n' , | sed 's/,$//') >.RIAK_HOSTS
+echo $(docker inspect -f '{{.NetworkSettings.IPAddress}}:8087' $CLUSTER_NODES | tr '\n' , | sed 's/,$//') >.RIAK_HOSTS
 ----
 
 == Build
@@ -99,12 +102,22 @@ sbt ++{{scala}} publishLocal assembly spPackage
 
 === Run Tests
 
-[[pyspark-tests]]
-.Run PySpark Tests
+There are link:connector/src/test/scala[tests written in Scala] and link:connector/src/test/java[tests written in Java] as well as http://doc.pytest.org/[py.test] tests for the Python support. The `test` target runs the Java and Scala tests and the `runPySparkTests` run the py.test tests.
+
+[[tests]]
+.Run Tests
+[source,bash]
 [asciibuild,bash,container="Build Container"]
 ----
 export RIAK_HOSTS=$(cat .RIAK_HOSTS)
-[[ "{{scala}}" =~ 2.10 ]] && sbt ++{{scala}} runPySparkTests
+
+# Run Scala and Java tests
+sbt -Dcom.basho.riak.pbchost=$RIAK_HOSTS ++{{scala}} test
+
+# Run PySpark tests
+if [[ "{{scala}}" =~ 2.10 ]]; then
+  sbt ++{{scala}} runPySparkTests
+fi
 ----
 
 == After Build
@@ -112,7 +125,6 @@ export RIAK_HOSTS=$(cat .RIAK_HOSTS)
 Clean up any containers left by force removing them. Figure out which containers need to be stopped by using the label attached to them when they were started in link:#container[].
 
 .Cleanup
-[source,bash]
 [asciibuild,bash]
 ----
 include::cleanup.sh[]
